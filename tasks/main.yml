@@ -1,0 +1,92 @@
+---
+- name: grub-btrfs role
+  tags:
+    - grub-btrfs
+  block:
+
+  # state = present|reinstall
+  - when: grub_btrfs.state == "present" or grub_btrfs.state == "reinstall"
+    block:
+
+    # check dir
+    - name: Check if /opt/grub-btrfs already exists
+      ansible.builtin.stat:
+        path: /opt/grub-btrfs
+      register: _dest_path
+    
+    # debug
+    - ansible.builtin.debug:
+        msg: "{{ _dest_path }}"
+
+    # install / reinstall
+    - when: _dest_path.stat.exists == false or grub_btrfs.state == "reinstall"
+      block:
+
+      # apt install
+      - name: Apt install inotify-tools, git, make
+        become: true
+        ansible.builtin.apt:
+          state: present
+          name:
+          - inotify-tools
+          - git
+          - make
+      
+      # git clone
+      - name: Git clone https://github.com/Antynea/grub-btrfs.git
+        become: true
+        become_user: "{{ un_install_from_git.user }}"
+        ansible.builtin.git:
+          repo: https://github.com/Antynea/grub-btrfs.git
+          dest: /opt/grub-btrfs
+          remote: origin
+          clone: true
+          update: true # retrieve new revisions from the origin repository.
+          force: false
+          accept_hostkey: true
+
+      # make install
+      - name: Make install
+        become: true
+        community.general.make:
+          chdir: /opt/grub-btrfs
+          target: install
+
+      # start/enable service
+      - name: Start/Enable grub-btrfsd
+        become: true
+        ansible.builtin.service:
+          name: grub-btrfsd
+          state: started
+          enabled: true
+
+      # update-grub
+      - name: Update grub
+        become: true
+        ansible.builtin.command: update-grub
+
+  # state = absent
+  - when: grub_btrfs.state == "absent"
+    block:
+
+    # start/enable service
+    - name: Stop/Disable grub-btrfsd
+      become: true
+      ansible.builtin.service:
+        name: grub-btrfsd
+        state: stopped
+        enabled: false
+
+    # make uninstall
+    - name: Make uninstall
+      become: true
+      community.general.make:
+        chdir: /opt/grub-btrfs
+        target: uninstall
+
+    # remove
+    - name: Remove /opt/grub-btrfs
+      become: true
+      ansible.builtin.file:
+        path: /opt/grub-btrfs
+        state: absent
