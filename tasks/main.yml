@@ -15,7 +15,8 @@
       register: _dest_path
     
     # debug
-    - ansible.builtin.debug:
+    - when: false
+      ansible.builtin.debug:
         msg: "{{ _dest_path }}"
 
     # install / reinstall
@@ -35,7 +36,6 @@
       # git clone
       - name: Git clone https://github.com/Antynea/grub-btrfs.git
         become: true
-        become_user: "{{ un_install_from_git.user }}"
         ansible.builtin.git:
           repo: https://github.com/Antynea/grub-btrfs.git
           dest: /opt/grub-btrfs
